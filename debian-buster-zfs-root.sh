@@ -48,7 +48,7 @@ while read -r IDLINK; do
 	BYID["$(basename "$(readlink "$IDLINK")")"]="$IDLINK"
 done < <(find /dev/disk/by-id/ -type l)
 
-for DISK in $(lsblk -I8,254,259 -dn -o name); do
+for DISK in $(lsblk -dn -o name); do
 	if [ -z "${BYID[$DISK]}" ]; then
 		SELECT+=("$DISK" "(no /dev/disk/by-id persistent device name available)" off)
 	else
@@ -184,14 +184,14 @@ for DISK in "${DISKS[@]}"; do
 
 	sgdisk -a1 -n$PARTBIOS:34:2047   -t$PARTBIOS:EF02 \
 	           -n$PARTEFI:2048:+512M -t$PARTEFI:EF00 \
-	           -n$PARTBOOT:0:+1G -t$PARTEFI:BF01 \		   
                    -n$PARTZFS:0:0        -t$PARTZFS:BF00 $DISK
 done
+# 	           -n$PARTBOOT:0:+1G -t$PARTEFI:BF01 \		   
 
 sleep 2
 
 #zpool create -o ashift=12 -O acltype=posixacl -O canmount=off -O compression=lz4 -O dnodesize=auto -O normalization=formD -O relatime=on -O xattr=sa -O mountpoint=/ -R /mnt \
-    rpool ${DISK}-part4
+#    rpool ${DISK}-part4
 zpool create -f -o ashift=12 -o altroot=/target -o feature@project_quota=disabled -o feature@spacemap_v2=disabled -O atime=off -O compression=lz4  -O mountpoint=none $ZPOOL $RAIDDEF
 if [ $? -ne 0 ]; then
 	echo "Unable to create zpool '$ZPOOL'" >&2
@@ -291,6 +291,8 @@ if [ -d /proc/acpi ]; then
 	chroot /target service acpid stop
 fi
 
+chroot /target /usr/bin/apt-get install --yes iw wpasupplicant
+
 ETHDEV=$(udevadm info -e | grep "ID_NET_NAME_ONBOARD=" | head -n1 | cut -d= -f2)
 test -n "$ETHDEV" || ETHDEV=$(udevadm info -e | grep "ID_NET_NAME_PATH=" | head -n1 | cut -d= -f2)
 test -n "$ETHDEV" || ETHDEV=enp0s1
@@ -302,7 +304,6 @@ done
 chroot /target /usr/bin/passwd
 chroot /target /usr/sbin/dpkg-reconfigure tzdata
 
-chroot /target /usr/bin/apt-get install --yes iw wpasupplicant
 sync
 
 #zfs umount -a
