@@ -302,7 +302,7 @@ done
 chroot /target /usr/bin/passwd
 chroot /target /usr/sbin/dpkg-reconfigure tzdata
 
-chroot /target /usr/bin/apt-get install --yes iw 
+chroot /target /usr/bin/apt-get install --yes iw wpasupplicant
 sync
 
 #zfs umount -a
