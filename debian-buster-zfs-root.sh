@@ -31,13 +31,14 @@ TARGETDIST=${TARGET_DIST:-buster}
 
 PARTBIOS=${TARGET_PARTBIOS:-1}
 PARTEFI=${TARGET_PARTEFI:-2}
-PARTZFS=${TARGET_PARTZFS:-3}
+PARTBOOT=${TARGET_PARTBOOT:-3}
+PARTZFS=${TARGET_PARTZFS:-4}
 
 SIZESWAP=${TARGET_SIZESWAP:-2G}
 SIZETMP=${TARGET_SIZETMP:-3G}
 SIZEVARTMP=${TARGET_VARTMP:-3G}
 
-NEWHOST=${TARGET_HOSTNAME}
+NEWHOST=${TARGET_HOSTNAME:cooldaddy}
 NEWDNS=${TARGET_DNS:-8.8.8.8 8.8.4.4}
 
 ### User settings
@@ -183,12 +184,15 @@ for DISK in "${DISKS[@]}"; do
 
 	sgdisk -a1 -n$PARTBIOS:34:2047   -t$PARTBIOS:EF02 \
 	           -n$PARTEFI:2048:+512M -t$PARTEFI:EF00 \
-                   -n$PARTZFS:0:0        -t$PARTZFS:BF01 $DISK
+	           -n$PARTBOOT:0:+1G -t$PARTEFI:BF01 \		   
+                   -n$PARTZFS:0:0        -t$PARTZFS:BF00 $DISK
 done
 
 sleep 2
 
-zpool create -f -o ashift=12 -o altroot=/target -O atime=off -O mountpoint=none $ZPOOL $RAIDDEF
+#zpool create -o ashift=12 -O acltype=posixacl -O canmount=off -O compression=lz4 -O dnodesize=auto -O normalization=formD -O relatime=on -O xattr=sa -O mountpoint=/ -R /mnt \
+    rpool ${DISK}-part4
+zpool create -f -o ashift=12 -o altroot=/target -o feature@project_quota=disabled -o feature@spacemap_v2=disabled -O atime=off -O compression=lz4  -O mountpoint=none $ZPOOL $RAIDDEF
 if [ $? -ne 0 ]; then
 	echo "Unable to create zpool '$ZPOOL'" >&2
 	exit 1
@@ -298,6 +302,7 @@ done
 chroot /target /usr/bin/passwd
 chroot /target /usr/sbin/dpkg-reconfigure tzdata
 
+chroot /target /usr/bin/apt-get install --yes iw 
 sync
 
 #zfs umount -a
