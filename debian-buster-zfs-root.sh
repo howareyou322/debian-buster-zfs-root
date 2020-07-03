@@ -191,8 +191,8 @@ done
 sleep 2
 
 #zpool create -o ashift=12 -O acltype=posixacl -O canmount=off -O compression=lz4 -O dnodesize=auto -O normalization=formD -O relatime=on -O xattr=sa -O mountpoint=/ -R /mnt \
-#    rpool ${DISK}-part4
-zpool create -f -o ashift=12 -o altroot=/target -o feature@project_quota=disabled -o feature@spacemap_v2=disabled -O atime=off -O compression=lz4  -O mountpoint=none $ZPOOL $RAIDDEF
+#    rpool ${DISK}-part4 feature@project_quota=disabled -o feature@spacemap_v2=disabled
+zpool create -f -o ashift=12 -o altroot=/target -o  -O atime=off -O compression=lz4  -O mountpoint=none $ZPOOL $RAIDDEF
 if [ $? -ne 0 ]; then
 	echo "Unable to create zpool '$ZPOOL'" >&2
 	exit 1
@@ -251,6 +251,16 @@ cat << EOF >/target/etc/fstab
 $ZPOOL/var                /var            zfs     defaults        0       0
 $ZPOOL/var/tmp            /var/tmp        zfs     defaults        0       0
 EOF
+
+cat << EOF >/target/etc/apt/sources.list.d/buster-backports.list
+deb http://deb.debian.org/debian buster-backports main contrib
+deb-src http://deb.debian.org/debian buster-backports main contrib
+EOF
+
+cat << EOF >/target/etc/apt/preferences.d/90_zfs
+Package: libnvpair1linux libuutil1linux libzfs2linux libzfslinux-dev libzpool2linux python3-pyzfs pyzfs-doc spl spl-dkms zfs-dkms zfs-dracut zfs-initramfs zfs-test zfsutils-linux zfsutils-linux-dev zfs-zed dpkg-dev linux-headers-amd64 linux-image-amd64
+Pin: release n=buster-backports
+Pin-Priority: 990
 
 mount --rbind /dev /target/dev
 mount --rbind /proc /target/proc
