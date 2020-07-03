@@ -222,7 +222,7 @@ mkdir -v -m 1777 /target/var/tmp
 mount -t zfs $ZPOOL/var/tmp /target/var/tmp
 chmod 1777 /target/var/tmp
 
-zfs create -V $SIZESWAP -b "$(getconf PAGESIZE)" -o primarycache=metadata -o com.sun:auto-snapshot=false -o logbias=throughput -o sync=always $ZPOOL/swap
+zfs create -V $SIZESWAP -b "$(getconf PAGESIZE)" -o primarycache=metadata com.sun:auto-snapshot=false -o logbias=throughput -o sync=always $ZPOOL/swap
 # sometimes needed to wait for /dev/zvol/$ZPOOL/swap to appear
 sleep 2
 mkswap -f /dev/zvol/$ZPOOL/swap
@@ -261,6 +261,7 @@ cat << EOF >/target/etc/apt/preferences.d/90_zfs
 Package: libnvpair1linux libuutil1linux libzfs2linux libzfslinux-dev libzpool2linux python3-pyzfs pyzfs-doc spl spl-dkms zfs-dkms zfs-dracut zfs-initramfs zfs-test zfsutils-linux zfsutils-linux-dev zfs-zed dpkg-dev linux-headers-amd64 linux-image-amd64
 Pin: release n=buster-backports
 Pin-Priority: 990
+EOF
 
 mount --rbind /dev /target/dev
 mount --rbind /proc /target/proc
