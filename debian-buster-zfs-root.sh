@@ -29,10 +29,10 @@
 ZPOOL=${TARGET_ZPOOL:-rpool}
 TARGETDIST=${TARGET_DIST:-buster}
 
-PARTBIOS=${TARGET_PARTBIOS:-1}
-PARTEFI=${TARGET_PARTEFI:-2}
-PARTBOOT=${TARGET_PARTBOOT:-3}
-PARTZFS=${TARGET_PARTZFS:-4}
+#PARTBIOS=${TARGET_PARTBIOS:-1}
+PARTEFI=${TARGET_PARTEFI:-1}
+PARTBOOT=${TARGET_PARTBOOT:-2}
+PARTZFS=${TARGET_PARTZFS:-3}
 
 SIZESWAP=${TARGET_SIZESWAP:-2G}
 SIZETMP=${TARGET_SIZETMP:-3G}
@@ -182,8 +182,8 @@ for DISK in "${DISKS[@]}"; do
 
 	sgdisk --zap-all $DISK
 
-	sgdisk -a1 -n$PARTBIOS:34:2047   -t$PARTBIOS:EF02 \
-	           -n$PARTEFI:2048:+512M -t$PARTEFI:EF00 \
+	sgdisk -a1 -n$PARTEFI:2048:+512M -t$PARTEFI:EF00 \
+		   -n$PARTBOOT:0:+1G -t$PARTBOOT:BF01 \
                    -n$PARTZFS:0:0        -t$PARTZFS:BF00 $DISK
 done
 # 	           -n$PARTBOOT:0:+1G -t$PARTEFI:BF01 \		   
@@ -206,7 +206,7 @@ zfs set compression=lz4 $ZPOOL
 
 zfs create $ZPOOL/ROOT
 zfs create -o mountpoint=/ $ZPOOL/ROOT/debian-$TARGETDIST
-zpool set bootfs=$ZPOOL/ROOT/debian-$TARGETDIST $ZPOOL
+#zpool set bootfs=$ZPOOL/ROOT/debian-$TARGETDIST $ZPOOL
 
 zfs create -o mountpoint=/tmp -o setuid=off -o exec=off -o devices=off -o com.sun:auto-snapshot=false -o quota=$SIZETMP $ZPOOL/tmp
 chmod 1777 /target/tmp
@@ -263,6 +263,10 @@ Pin: release n=buster-backports
 Pin-Priority: 990
 EOF
 
+cat <<EOF >> /target/etc/apt/sources.list.d/openmediavault.list
+deb https://packages.openmediavault.org/public usul main
+EOF
+
 mount --rbind /dev /target/dev
 mount --rbind /proc /target/proc
 mount --rbind /sys /target/sys
@@ -277,6 +281,15 @@ chroot /target /usr/bin/apt-get update
 chroot /target /usr/bin/apt-get install --yes grub2-common $GRUBPKG zfs-initramfs zfs-dkms
 grep -q zfs /target/etc/default/grub || perl -i -pe 's/quiet/boot=zfs quiet/' /target/etc/default/grub 
 chroot /target /usr/sbin/update-grub
+
+BOOTPARTITION+=("/dev/$DISK$PARTBOOT")
+yes | mkfs.ext4 $BOOTPARTITION
+
+mkdir /target/boot
+mount $BOOTPARTITION /target/boot
+
+echo "PARTUUID=$(blkid -s PARTUUID -o value $BOOTPARTITION) \
+    /boot ext4 noatime,nofail,x-systemd.device-timeout=5s 0 1" >> /target/etc/fstab
 
 if [ "${GRUBPKG:0:8}" == "grub-efi" ]; then
 
