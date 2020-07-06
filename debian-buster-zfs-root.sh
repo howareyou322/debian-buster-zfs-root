@@ -192,7 +192,7 @@ sleep 2
 
 #zpool create -o ashift=12 -O acltype=posixacl -O canmount=off -O compression=lz4 -O dnodesize=auto -O normalization=formD -O relatime=on -O xattr=sa -O mountpoint=/ -R /mnt \
 #    rpool ${DISK}-part4 feature@project_quota=disabled -o feature@spacemap_v2=disabled
-zpool create -f -o ashift=12 -o altroot=/target -o  -O atime=off -O compression=lz4  -O mountpoint=none $ZPOOL $RAIDDEF
+zpool create -f -o ashift=12 -o altroot=/target -O atime=off -O compression=lz4  -O mountpoint=none $ZPOOL $RAIDDEF
 if [ $? -ne 0 ]; then
 	echo "Unable to create zpool '$ZPOOL'" >&2
 	exit 1
@@ -222,7 +222,7 @@ mkdir -v -m 1777 /target/var/tmp
 mount -t zfs $ZPOOL/var/tmp /target/var/tmp
 chmod 1777 /target/var/tmp
 
-zfs create -V $SIZESWAP -b "$(getconf PAGESIZE)" -o primarycache=metadata com.sun:auto-snapshot=false -o logbias=throughput -o sync=always $ZPOOL/swap
+zfs create -V $SIZESWAP -b "$(getconf PAGESIZE)" -o primarycache=metadata -o com.sun:auto-snapshot=false -o logbias=throughput -o sync=always $ZPOOL/swap
 # sometimes needed to wait for /dev/zvol/$ZPOOL/swap to appear
 sleep 2
 mkswap -f /dev/zvol/$ZPOOL/swap
