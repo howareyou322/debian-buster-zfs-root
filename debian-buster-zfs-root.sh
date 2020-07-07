@@ -183,7 +183,6 @@ for DISK in "${DISKS[@]}"; do
 	sgdisk --zap-all $DISK
 
 	sgdisk -a1 -n$PARTEFI:2048:+512M -t$PARTEFI:EF00 \
-		   -n$PARTBOOT:0:+1G -t$PARTBOOT:BF01 \
                    -n$PARTZFS:0:0        -t$PARTZFS:BF00 $DISK
 done
 # 	           -n$PARTBOOT:0:+1G -t$PARTEFI:BF01 \		   
@@ -206,7 +205,7 @@ zfs set compression=lz4 $ZPOOL
 
 zfs create $ZPOOL/ROOT
 zfs create -o mountpoint=/ $ZPOOL/ROOT/debian-$TARGETDIST
-#zpool set bootfs=$ZPOOL/ROOT/debian-$TARGETDIST $ZPOOL
+zpool set bootfs=$ZPOOL/ROOT/debian-$TARGETDIST $ZPOOL
 
 zfs create -o mountpoint=/tmp -o setuid=off -o exec=off -o devices=off -o com.sun:auto-snapshot=false -o quota=$SIZETMP $ZPOOL/tmp
 chmod 1777 /target/tmp
@@ -275,21 +274,16 @@ ln -s /proc/mounts /target/etc/mtab
 perl -i -pe 's/# (en_US.UTF-8)/$1/' /target/etc/locale.gen
 echo 'LANG="en_US.UTF-8"' > /target/etc/default/locale
 chroot /target /usr/sbin/locale-gen
+chroot /target /usr/bin/apt-get install --yes wget gnupg
+
+chroot /target wget -O "/etc/apt/trusted.gpg.d/openmediavault-archive-keyring.asc" https://packages.openmediavault.org/public/archive.key
+chroot /target /usr/bin/apt-key add "/etc/apt/trusted.gpg.d/openmediavault-archive-keyring.asc"
 
 chroot /target /usr/bin/apt-get update
 
 chroot /target /usr/bin/apt-get install --yes grub2-common $GRUBPKG zfs-initramfs zfs-dkms
 grep -q zfs /target/etc/default/grub || perl -i -pe 's/quiet/boot=zfs quiet/' /target/etc/default/grub 
 chroot /target /usr/sbin/update-grub
-
-BOOTPARTITION+=("/dev/$DISK$PARTBOOT")
-yes | mkfs.ext4 $BOOTPARTITION
-
-mkdir /target/boot
-mount $BOOTPARTITION /target/boot
-
-echo "PARTUUID=$(blkid -s PARTUUID -o value $BOOTPARTITION) \
-    /boot ext4 noatime,nofail,x-systemd.device-timeout=5s 0 1" >> /target/etc/fstab
 
 if [ "${GRUBPKG:0:8}" == "grub-efi" ]; then
 
@@ -315,8 +309,9 @@ if [ -d /proc/acpi ]; then
 	chroot /target service acpid stop
 fi
 
-chroot /target /usr/bin/apt-get install --yes iw wpasupplicant
+chroot /target /usr/bin/apt-get install --yes iw wpasupplicant openmediavault-keyring openmediavault
 
+chroot /target omv-confdbadm populate
 ETHDEV=$(udevadm info -e | grep "ID_NET_NAME_ONBOARD=" | head -n1 | cut -d= -f2)
 test -n "$ETHDEV" || ETHDEV=$(udevadm info -e | grep "ID_NET_NAME_PATH=" | head -n1 | cut -d= -f2)
 test -n "$ETHDEV" || ETHDEV=enp0s1
